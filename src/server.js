@@ -1,19 +1,57 @@
-import express from "express";
-import productRouter from "./routes/product.router.js";
-import cartRouter from "./routes/cart.router.js";
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { engine } from 'express-handlebars';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 8080;
+const httpServer = createServer(app);
+const io = new Server(httpServer);
 
-app.use('/static', express.static(path.join(process.cwd(), "src", "public")));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Configurar Handlebars
+app.engine('handlebars', engine());
+app.set('view engine', 'handlebars');
+app.set('views', path.join(__dirname, 'views'));
 
-app.use("/api/products", productRouter);
-app.use("/api/carts", cartRouter);
+// Middleware para servir archivos estáticos
+app.use(express.static(path.join(__dirname, 'public')));
 
-// console.log(process.cwd())
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// Rutas
+app.get('/', (req, res) => {
+  res.render('home', { products: /* tu lista de productos */ });
+});
+
+app.get('/realtimeproducts', (req, res) => {
+  res.render('realTimeProducts', { products: /* tu lista de productos */ });
+});
+
+// Configurar Socket.IO
+io.on('connection', (socket) => {
+  console.log('Nuevo cliente conectado');
+
+  // Manejar eventos de creación y eliminación de productos
+  socket.on('newProduct', (product) => {
+    // Lógica para agregar el producto
+    io.emit('updateProducts', /* lista actualizada de productos */);
+  });
+
+  socket.on('deleteProduct', (productId) => {
+    // Lógica para eliminar el producto
+    io.emit('updateProducts', /* lista actualizada de productos */);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Cliente desconectado');
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+httpServer.listen(PORT, () => {
+  console.log(`Servidor escuchando en el puerto ${PORT}`);
+});
 
 
